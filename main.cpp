@@ -177,7 +177,7 @@ void updateGame(){
 	// bomb count
 	std::wstring bombCount;
 	if(bombs > 9)
-		bombCount = bombs > 9 ? L"0"+std::to_wstring(bombs);
+		bombCount = L"0"+std::to_wstring(bombs);
 	else if(bombs > 0)
 		bombCount = L"00"+std::to_wstring(bombs);
 	else
