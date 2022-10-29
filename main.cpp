@@ -177,9 +177,11 @@ void updateGame(){
 	// bomb count
 	std::wstring bombCount;
 	if(bombs > 9)
-		bombCount = L"0"+std::to_wstring(bombs);
-	else
+		bombCount = bombs > 9 ? L"0"+std::to_wstring(bombs);
+	else if(bombs > 0)
 		bombCount = L"00"+std::to_wstring(bombs);
+	else
+		bombCount = L"000";
 	graph = Gdiplus::Graphics::FromImage(&bmp);
 	graph->FillRectangle(&behind, 0, 0, 66, 40);
 	graph->DrawString(bombCount.c_str(), -1, &font, pointF, NULL, &redBrush);
