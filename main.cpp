@@ -27,14 +27,20 @@ int revealed = 0;
 int tick = 0; // this divided by 50 is time in seconds
 tile arr[H];
 bool inProgress = false;
+bool hasClicked = false;
 
 void resetTiles(tile (&arr)[480]){
+	bombs = 99;
+	revealed = 0;
 	for(int i = 0; i < 480; ++i){
-		arr[i].hidden = 1;
-		arr[i].bomb = 0;
+		arr[i].hidden = true;
+		arr[i].bomb = false;
 		arr[i].nextTo = 0;
-		arr[i].flag = 0;
+		arr[i].flag = false;
 	}
+	tick = 0;
+	inProgress = false;
+	hasClicked = false;
 }
 
 void countBombs(tile (&arr)[480]){
@@ -111,89 +117,10 @@ void getDimensions(HWND w){
 	bottom = 200+(TILESIZE*16);
 }
 
-void drawState(){
-	Gdiplus::Bitmap bmp(rect.right,rect.bottom);
-	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
-	// background
-	Gdiplus::SolidBrush wiper(back);
-	graph->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
-	// header
-	Gdiplus::Pen darkPen(darkGray);
-	graph->DrawLine(&darkPen, topLeftX, TOP, topLeftX, TOP+HEADERSIZE);
-	graph->DrawLine(&darkPen, topLeftX, TOP, rect.right-topLeftX, TOP);
-	Gdiplus::Pen whitePen(white);
-	graph->DrawLine(&whitePen, rect.right-topLeftX, TOP, rect.right-topLeftX, TOP+HEADERSIZE);
-	graph->DrawLine(&whitePen, topLeftX, TOP+HEADERSIZE, rect.right-topLeftX, TOP+HEADERSIZE);
-	// draw main area
-	graph->DrawLine(&darkPen, topLeftX, TOP+HEADERSIZE+12, topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
-	graph->DrawLine(&darkPen, topLeftX, TOP+HEADERSIZE+12, rect.right-topLeftX, TOP+HEADERSIZE+12);
-	graph->DrawLine(&whitePen, rect.right-topLeftX, TOP+HEADERSIZE+12, rect.right-topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
-	graph->DrawLine(&whitePen, topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2, rect.right-topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
-
-	graphics->DrawImage(&bmp, 0, 0, (int)rect.right, (int)rect.bottom);
-	delete graph;
-	Gdiplus::Bitmap board(TILESIZE*30, TILESIZE*16);
-	graph = Gdiplus::Graphics::FromImage(&board);
-	graph->FillRectangle(&wiper, 0, 0, TILESIZE*30, TILESIZE*16);
-	for(int j = 0; j < 16; ++j){
-		for(int i = 0; i < 30; ++i){
-			int x = (i*TILESIZE);
-			int y = (j*TILESIZE);
-			graph->DrawLine(&whitePen, x, y, x+TILESIZE-1, y);
-			graph->DrawLine(&whitePen, x, y, x, y+TILESIZE-1);
-			graph->DrawLine(&darkPen, x+TILESIZE-1, y, x+TILESIZE-1, y+TILESIZE);
-			graph->DrawLine(&darkPen, x, y+TILESIZE-1, x+TILESIZE-1, y+TILESIZE-1);
-		}
-	}
-	
-	graphics->DrawImage(&board, topLeftX+2, TOP+HEADERSIZE+14, (TILESIZE*30), (TILESIZE*16));
-	delete graph;
-}
-
-void updateGame(){
-	Gdiplus::SolidBrush behind(black);
-	Gdiplus::FontFamily fontFamily(L"Arial");
-	Gdiplus::Font       font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
-	Gdiplus::PointF     pointF(0, 1);
-	Gdiplus::SolidBrush redBrush(red);
-	// timer
-	int time = tick/50;
-	std::wstring timer;
-	if(time > 999)
-		timer = L"999";
-	else if(time < 10)
-		timer = L"00"+std::to_wstring(time);
-	else if(time < 100)
-		timer = L"0"+std::to_wstring(time);
-	else
-		timer = std::to_wstring(time);
-	Gdiplus::Bitmap bmp(66, 40);
-	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
-	graph->FillRectangle(&behind, 0, 0, 66, 40);
-	graph->DrawString(timer.c_str(), -1, &font, pointF, NULL, &redBrush);
-	
-	graphics->DrawImage(&bmp, rect.right-topLeftX-86, TOP+15, 66, 40);
-	delete graph;
-	// bomb count
-	std::wstring bombCount;
-	if(bombs > 9)
-		bombCount = L"0"+std::to_wstring(bombs);
-	else if(bombs > 0)
-		bombCount = L"00"+std::to_wstring(bombs);
-	else
-		bombCount = L"000";
-	graph = Gdiplus::Graphics::FromImage(&bmp);
-	graph->FillRectangle(&behind, 0, 0, 66, 40);
-	graph->DrawString(bombCount.c_str(), -1, &font, pointF, NULL, &redBrush);
-	
-	graphics->DrawImage(&bmp, topLeftX+20, TOP+15, 66, 40);
-	delete graph;
-}
-
 void updateTiles(){
 	Gdiplus::SolidBrush behind(black);
 	Gdiplus::FontFamily fontFamily(L"Arial");
-	Gdiplus::Font       font(&fontFamily, 10, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+	Gdiplus::Font font(&fontFamily, 10, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
 	Gdiplus::Pen darkPen(darkGray);
 	Gdiplus::Pen whitePen(white);
 	Gdiplus::SolidBrush oneMine(one);
@@ -220,6 +147,23 @@ void updateTiles(){
 				graph->DrawLine(&whitePen, x, y, x, y+TILESIZE-1);
 				graph->DrawLine(&darkPen, x+TILESIZE-1, y, x+TILESIZE-1, y+TILESIZE);
 				graph->DrawLine(&darkPen, x, y+TILESIZE-1, x+TILESIZE-1, y+TILESIZE-1);
+				if(arr[(30*j)+i].flag){
+					graph->FillRectangle(&behind, x+7, y+22, (TILESIZE>>1)+1, 3);
+					graph->FillRectangle(&behind, x+14, y+9, 2, 13);
+					// red flag
+					Gdiplus::PointF p1(x+16, y+5);
+					Gdiplus::PointF p2(x+16, y+15);
+					Gdiplus::PointF p3(x+8, y+10);
+					Gdiplus::PointF points[3] ={p1,p2,p3};
+					graph->FillPolygon(&threeMine, points, 3);
+				}
+			}else if(arr[(30*j)+i].bomb){
+				Gdiplus::SolidBrush base(black);
+				Gdiplus::Pen lines(black, 2);
+
+				graph->FillEllipse(&base, x+6, y+6, TILESIZE-13, TILESIZE-13);
+				graph->DrawLine(&lines, x+15, y+5, x+15, y+25);
+				graph->DrawLine(&lines, x+5, y+15, x+25, y+15);
 			}else{
 				graph->FillRectangle(&wiper2, x, y, TILESIZE-1, TILESIZE-1);
 				if(arr[(30*j)+i].nextTo){
@@ -259,51 +203,152 @@ void updateTiles(){
 	graphics->DrawImage(&bmp, topLeftX+2, TOP+HEADERSIZE+14, (TILESIZE*30), (TILESIZE*16));
 	delete graph;
 }
+
+// redraws hidden tile, dont call for revealed tiles
+void redrawTile(const int &x, const int &y){
+	Gdiplus::SolidBrush wiper(back);
+	int xc = topLeftX+2+(x*TILESIZE);
+	int yc = TOP+HEADERSIZE+14+(y*TILESIZE);
+	// draw gray box and put special stuff on top
+	graphics->FillRectangle(&wiper, xc+1, yc+1, TILESIZE-2, TILESIZE-2);
+
+	if(arr[(30*y)+x].bomb && !arr[(30*y)+x].hidden){
+		Gdiplus::SolidBrush base(black);
+		Gdiplus::Pen lines(black, 2);
+
+		graphics->FillEllipse(&base, xc+6, yc+6, TILESIZE-13, TILESIZE-13);
+		graphics->DrawLine(&lines, xc+15, yc+5, xc+15, yc+25);
+		graphics->DrawLine(&lines, xc+5, yc+15, xc+25, yc+15);
+	}
+	else if(arr[(30*y)+x].flag){
+		Gdiplus::SolidBrush base(black);
+		Gdiplus::SolidBrush flag(three);
+		graphics->FillRectangle(&base, xc+7, yc+22, (TILESIZE>>1)+1, 3);
+		graphics->FillRectangle(&base, xc+14, yc+9, 2, 13);
+		// red flag
+		Gdiplus::PointF p1(xc+16, yc+5);
+		Gdiplus::PointF p2(xc+16, yc+15);
+		Gdiplus::PointF p3(xc+8, yc+10);
+		Gdiplus::PointF points[3] ={p1,p2,p3};
+		graphics->FillPolygon(&flag, points, 3);
+	}
+}
+
+void drawState(){
+	Gdiplus::Bitmap bmp(rect.right,rect.bottom);
+	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
+	// background
+	Gdiplus::SolidBrush wiper(back);
+	graph->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
+	// header
+	Gdiplus::Pen darkPen(darkGray);
+	graph->DrawLine(&darkPen, topLeftX, TOP, topLeftX, TOP+HEADERSIZE);
+	graph->DrawLine(&darkPen, topLeftX, TOP, rect.right-topLeftX, TOP);
+	Gdiplus::Pen whitePen(white);
+	graph->DrawLine(&whitePen, rect.right-topLeftX, TOP, rect.right-topLeftX, TOP+HEADERSIZE);
+	graph->DrawLine(&whitePen, topLeftX, TOP+HEADERSIZE, rect.right-topLeftX, TOP+HEADERSIZE);
+	// draw main area
+	graph->DrawLine(&darkPen, topLeftX, TOP+HEADERSIZE+12, topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
+	graph->DrawLine(&darkPen, topLeftX, TOP+HEADERSIZE+12, rect.right-topLeftX, TOP+HEADERSIZE+12);
+	graph->DrawLine(&whitePen, rect.right-topLeftX, TOP+HEADERSIZE+12, rect.right-topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
+	graph->DrawLine(&whitePen, topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2, rect.right-topLeftX, TOP+HEADERSIZE+12+(16*TILESIZE)+2);
+
+	graphics->DrawImage(&bmp, 0, 0, (int)rect.right, (int)rect.bottom);
+	delete graph;
+	
+	updateTiles();
+}
+
+void updateGame(){
+	Gdiplus::SolidBrush behind(black);
+	Gdiplus::FontFamily fontFamily(L"Arial");
+	Gdiplus::Font       font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+	Gdiplus::PointF     pointF(0, 1);
+	Gdiplus::SolidBrush redBrush(red);
+	// timer
+	int time = tick/50;
+	std::wstring timer;
+	if(time > 999)
+		timer = L"999";
+	else if(time < 10)
+		timer = L"00"+std::to_wstring(time);
+	else if(time < 100)
+		timer = L"0"+std::to_wstring(time);
+	else
+		timer = std::to_wstring(time);
+	Gdiplus::Bitmap bmp(66, 40);
+	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
+	graph->FillRectangle(&behind, 0, 0, 66, 40);
+	graph->DrawString(timer.c_str(), -1, &font, pointF, NULL, &redBrush);
+	
+	graphics->DrawImage(&bmp, rect.right-topLeftX-86, TOP+15, 66, 40);
+	delete graph;
+	// bomb count
+	std::wstring bombCount;
+	bombCount = bombs > 9 ? L"0"+std::to_wstring(bombs) : L"00"+std::to_wstring(bombs);
+
+	graph = Gdiplus::Graphics::FromImage(&bmp);
+	graph->FillRectangle(&behind, 0, 0, 66, 40);
+	graph->DrawString(bombCount.c_str(), -1, &font, pointF, NULL, &redBrush);
+	
+	graphics->DrawImage(&bmp, topLeftX+20, TOP+15, 66, 40);
+	delete graph;
+}
+
+
 void showNear(int x, int y, bool nw=true, bool n=true, bool ne=true, bool w=true, bool e=true, bool sw=true, bool s=true, bool se=true){
 	if(y > 0 && n && arr[(30*(y-1))+x].hidden){
 		arr[(30*(y-1))+x].hidden = false;
+		++revealed;
 		if(!arr[(30*(y-1))+x].nextTo){
 			showNear(x, y-1, nw=true, n=true, ne=true);
 		}
 	}
 	if(y < 15 && s && arr[(30*(y+1))+x].hidden){
 		arr[(30*(y+1))+x].hidden = false;
+		++revealed;
 		if(!arr[(30*(y+1))+x].nextTo){
 			showNear(x, y+1, sw=true, s=true, se=true);
 		}
 	}
 	if(x > 0 && w && arr[(30*(y))+x-1].hidden){
 		arr[(30*(y))+x-1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y))+x-1].nextTo){
 			showNear(x-1, y, nw=true, w=true, sw=true);
 		}
 	}
 	if(x < 29 && e && arr[(30*(y))+x+1].hidden){
 		arr[(30*(y))+x+1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y))+x+1].nextTo){
 			showNear(x+1, y, ne=true, e=true, se=true);
 		}
 	}
 	if(y > 0 && x > 0 && nw && arr[(30*(y-1))+x-1].hidden){
 		arr[(30*(y-1))+x-1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y-1))+x-1].nextTo){
 			showNear(x-1, y-1, nw=true, n=true, w=true);
 		}
 	}
 	if(y > 0 && x < 29 && ne && arr[(30*(y-1))+x+1].hidden){
 		arr[(30*(y-1))+x+1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y-1))+x+1].nextTo){
 			showNear(x+1, y-1, ne=true, n=true, e=true);
 		}
 	}
 	if(y < 15 && x > 0 && sw && arr[(30*(y+1))+x-1].hidden){
 		arr[(30*(y+1))+x-1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y+1))+x-1].nextTo){
 			showNear(x-1, y+1, sw=true, s=true, w=true);
 		}
 	}
 	if(y < 15 && x < 29 && se && arr[(30*(y+1))+x+1].hidden){
 		arr[(30*(y+1))+x+1].hidden = false;
+		++revealed;
 		if(!arr[(30*(y+1))+x+1].nextTo){
 			showNear(x+1, y+1, se=true, s=true, e=true);
 		}
@@ -342,25 +387,47 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 				return 0;
 			x = (lParam & 0xFFFF);
 			y = (lParam >> 16);
+			// check if user clicked on new game
+
+			// throw out clicks not on tiles
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
 			   y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
 				return 0;
-			x -= topLeftX+1;
-			y -= TOP+HEADERSIZE+15;
-			x /= TILESIZE;
-			y /= TILESIZE;
+			// can't click tiles if game ended
+			if(!inProgress) return 0;
+			x = (x-topLeftX+1)/TILESIZE;
+			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
 			// clicked on col x, row y
-			// if clicked on bomb
 			if(arr[(30*y)+x].hidden){
+				// stop game if mine, else reveal tiles
 				if(arr[(30*y)+x].bomb){
+					arr[(30*y)+x].hidden = false;
 					inProgress = false;
+					redrawTile(x, y);
 				}else{
 					arr[(30*y)+x].hidden = false;
+					++revealed;
 					if(!arr[(30*y)+x].nextTo) 
 						showNear(x, y);
+						updateTiles();
 				}
-				updateTiles();
 			}
+			hasClicked = true;
+			return 0;
+		case WM_RBUTTONDOWN:
+			if(!wParam || !inProgress)
+				return 0;
+			x = (lParam & 0xFFFF);
+			y = (lParam >> 16);
+			if(x <= topLeftX || x >= rect.right-topLeftX ||
+			   y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
+				return 0;
+			x = (x-topLeftX+1)/TILESIZE;
+			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
+			// toggle flag and redraw
+			arr[(30*y)+x].flag = !arr[(30*y)+x].flag;
+			redrawTile(x, y);
+			
 			return 0;
 		default: 
 			return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -370,7 +437,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 //main function
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int nShowCmd){
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-	ULONG_PTR           gdiplusToken;
+	ULONG_PTR gdiplusToken;
 	Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 	WNDCLASS windowClass = {};
 	windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -394,17 +461,16 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	drawState();
 	
 	updateGame();
-	// array of tiles
 	
 	for (int i = 0; i < H; ++i) {
-        arr[i] = tile();
-    }
+		arr[i] = tile();
+	}
 	// mark 99 random tiles as bombs
 	std::minstd_rand  rng(time(NULL));
-    std::uniform_int_distribution<std::minstd_rand0::result_type> dist(0, H-1);
+	std::uniform_int_distribution<std::minstd_rand0::result_type> dist(0, H-1);
 	for (int i = 0; i < 99; ++i) {
-        arr[dist(rng)].bomb = true;
-    }
+		arr[dist(rng)].bomb = true;
+	}
 	// count how many bombs are next to each tile
 	countBombs(arr);
 	inProgress = true;
@@ -412,7 +478,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 			// FPS Limiter
 			nextF += std::chrono::milliseconds(20); 
 			std::this_thread::sleep_until(nextF);
-			if(inProgress) ++tick;
+			if(inProgress&&hasClicked) ++tick;
 			if(PeekMessage(&message, NULL, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
 				TranslateMessage(&message); 
 				DispatchMessage(&message);  
