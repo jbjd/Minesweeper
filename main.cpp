@@ -29,19 +29,7 @@ tile arr[H];
 bool inProgress = false;
 bool hasClicked = false;
 
-void resetTiles(tile (&arr)[480]){
-	bombs = 99;
-	revealed = 0;
-	for(int i = 0; i < 480; ++i){
-		arr[i].hidden = true;
-		arr[i].bomb = false;
-		arr[i].nextTo = 0;
-		arr[i].flag = false;
-	}
-	tick = 0;
-	inProgress = false;
-	hasClicked = false;
-}
+
 
 void countBombs(tile (&arr)[480]){
 	arr[0].nextTo = arr[1].bomb+arr[COL].bomb+arr[COL+1].bomb;  // nw corner
@@ -99,6 +87,7 @@ Gdiplus::Color backer = Gdiplus::Color(255, 184, 185, 184);
 Gdiplus::Color white = Gdiplus::Color(255, 240, 240, 240);
 Gdiplus::Color black = Gdiplus::Color(255, 1, 1, 1);
 Gdiplus::Color red = Gdiplus::Color(255, 230, 50, 10);
+Gdiplus::Color yel = Gdiplus::Color(255, 255, 255, 0);
 Gdiplus::Color one = Gdiplus::Color(255, 30, 50, 200);
 Gdiplus::Color two = Gdiplus::Color(255, 40, 110, 30);
 Gdiplus::Color three = Gdiplus::Color(255, 200, 50, 30);
@@ -159,8 +148,10 @@ void updateTiles(){
 				}
 			}else if(arr[(30*j)+i].bomb){
 				Gdiplus::SolidBrush base(black);
+				Gdiplus::SolidBrush back(red);
 				Gdiplus::Pen lines(black, 2);
 
+				graph->FillRectangle(&back, x, y, TILESIZE-1, TILESIZE-1);
 				graph->FillEllipse(&base, x+6, y+6, TILESIZE-13, TILESIZE-13);
 				graph->DrawLine(&lines, x+15, y+5, x+15, y+25);
 				graph->DrawLine(&lines, x+5, y+15, x+25, y+15);
@@ -214,8 +205,10 @@ void redrawTile(const int &x, const int &y){
 
 	if(arr[(30*y)+x].bomb && !arr[(30*y)+x].hidden){
 		Gdiplus::SolidBrush base(black);
+		Gdiplus::SolidBrush back(red);
 		Gdiplus::Pen lines(black, 2);
 
+		graphics->FillRectangle(&back, xc, yc, TILESIZE-1, TILESIZE-1);
 		graphics->FillEllipse(&base, xc+6, yc+6, TILESIZE-13, TILESIZE-13);
 		graphics->DrawLine(&lines, xc+15, yc+5, xc+15, yc+25);
 		graphics->DrawLine(&lines, xc+5, yc+15, xc+25, yc+15);
@@ -232,6 +225,37 @@ void redrawTile(const int &x, const int &y){
 		Gdiplus::PointF points[3] ={p1,p2,p3};
 		graphics->FillPolygon(&flag, points, 3);
 	}
+}
+
+void addMines(tile (&arr)[480]){
+	std::minstd_rand  rng(time(NULL));
+	std::uniform_int_distribution<std::minstd_rand0::result_type> dist(0, H-1);
+	int total = 0;
+	int temp;
+	while(total < 99){
+		temp = dist(rng);
+		if(!arr[temp].bomb){
+			arr[temp].bomb = true;
+			++total;
+		}
+	}
+}
+
+void resetTiles(tile (&arr)[480]){
+	bombs = 99;
+	revealed = 0;
+	for(int i = 0; i < 480; ++i){
+		arr[i].hidden = true;
+		arr[i].bomb = false;
+		arr[i].nextTo = 0;
+		arr[i].flag = false;
+	}
+	tick = 0;
+	inProgress = true;
+	hasClicked = false;
+	addMines(arr);
+	countBombs(arr);
+	updateTiles();
 }
 
 void drawState(){
@@ -259,12 +283,16 @@ void drawState(){
 	updateTiles();
 }
 
-void updateGame(){
+void updateHeader(){
 	Gdiplus::SolidBrush behind(black);
+	Gdiplus::Pen bPen(black);
 	Gdiplus::FontFamily fontFamily(L"Arial");
 	Gdiplus::Font       font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
 	Gdiplus::PointF     pointF(0, 1);
 	Gdiplus::SolidBrush redBrush(red);
+	Gdiplus::Pen darkPen(darkGray, 2);
+	Gdiplus::Pen whitePen(white);
+	Gdiplus::SolidBrush fac(yel);
 	// timer
 	int time = tick/50;
 	std::wstring timer;
@@ -285,13 +313,38 @@ void updateGame(){
 	delete graph;
 	// bomb count
 	std::wstring bombCount;
-	bombCount = bombs > 9 ? L"0"+std::to_wstring(bombs) : L"00"+std::to_wstring(bombs);
-
+	bombCount = bombs > 9 || bombs < 0 ? L"0"+std::to_wstring(bombs) : L"00"+std::to_wstring(bombs);
+	if(bombs > 9)
+		bombCount = L"0"+std::to_wstring(bombs);
+	else if(bombs >= 0)
+		bombCount = L"00"+std::to_wstring(bombs);
+	else if(bombs >= -9)
+		bombCount = L"-0"+std::to_wstring(-1*bombs);
+	else if(bombs >= -99)
+		bombCount = L"-"+std::to_wstring(-1*bombs);
+	else
+		bombCount = L"---";
 	graph = Gdiplus::Graphics::FromImage(&bmp);
 	graph->FillRectangle(&behind, 0, 0, 66, 40);
 	graph->DrawString(bombCount.c_str(), -1, &font, pointF, NULL, &redBrush);
 	
 	graphics->DrawImage(&bmp, topLeftX+20, TOP+15, 66, 40);
+	delete graph;
+	Gdiplus::Bitmap face(40, 40);
+
+	graph = Gdiplus::Graphics::FromImage(&face);
+	graph->DrawRectangle(&darkPen, 0, 0, 39, 39);
+	graph->DrawLine(&whitePen, 1, 1, 1, 38);
+	graph->DrawLine(&whitePen, 1, 1, 38, 1);
+	// face
+	graph->FillEllipse(&behind, 9.0F, 9.0F, 22.0F, 22.0F);
+	graph->FillEllipse(&fac, 10.0F, 10.0F, 20.0F, 20.0F);
+	graph->FillRectangle(&behind, 16, 16, 2, 2);
+	graph->FillRectangle(&behind, 23, 16, 2, 2);
+	//mouth
+	graph->DrawArc(&bPen, 15, 20, 10, 5, 180, -180);
+	
+	graphics->DrawImage(&face, ((int)(rect.right/2))-20, TOP+15, 40, 40);
 	delete graph;
 }
 
@@ -360,8 +413,6 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 	LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;
 	int x, y;
 	switch(uMsg){
-		case WM_ERASEBKGND:
-		return 1;
 		// resize
 		case WM_SIZE:
 			// read size of screen and draw background
@@ -369,7 +420,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			if(graphics == nullptr)
 				return 0;
 			drawState();
-			updateGame();
+			updateHeader();
 			return 0;
 		// exit
 		case WM_CLOSE:
@@ -388,6 +439,11 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			x = (lParam & 0xFFFF);
 			y = (lParam >> 16);
 			// check if user clicked on new game
+			// ((int)(rect.right/2))-20, TOP+15, 40, 40
+			if(x >= ((int)(rect.right/2))-20 && x <= ((int)(rect.right/2))+20 && y >= TOP+15 && y <= TOP+55){
+				// must have clicked on face
+				resetTiles(arr);
+			}
 
 			// throw out clicks not on tiles
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
@@ -401,15 +457,35 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			if(arr[(30*y)+x].hidden){
 				// stop game if mine, else reveal tiles
 				if(arr[(30*y)+x].bomb){
+					if(!hasClicked){
+						// if users first click was a mine, move mine to upper left
+						for(int i = 0; i < 400; ++i){
+							if(!arr[i].bomb){
+								arr[i].bomb = true;
+								break;
+							}
+						}
+						arr[(30*y)+x].bomb = false;
+						// recount mines 
+						countBombs(arr);
+						// act as if nothing happened
+						goto noMine;
+					}
 					arr[(30*y)+x].hidden = false;
 					inProgress = false;
 					redrawTile(x, y);
 				}else{
+				noMine:
 					arr[(30*y)+x].hidden = false;
 					++revealed;
 					if(!arr[(30*y)+x].nextTo) 
 						showNear(x, y);
 						updateTiles();
+					if(revealed >= 381){
+						inProgress = false;
+						bombs = 0;
+					}
+					//std::cout << revealed << \n <<;
 				}
 			}
 			hasClicked = true;
@@ -424,7 +500,13 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 				return 0;
 			x = (x-topLeftX+1)/TILESIZE;
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
+			if(!arr[(30*y)+x].hidden || x > 29 || y > 15) return 0;
 			// toggle flag and redraw
+			if(arr[(30*y)+x].flag){
+				++bombs;
+			}else{
+				--bombs;
+			}
 			arr[(30*y)+x].flag = !arr[(30*y)+x].flag;
 			redrawTile(x, y);
 			
@@ -460,17 +542,13 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	graphics->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
 	drawState();
 	
-	updateGame();
+	updateHeader();
 	
 	for (int i = 0; i < H; ++i) {
 		arr[i] = tile();
 	}
 	// mark 99 random tiles as bombs
-	std::minstd_rand  rng(time(NULL));
-	std::uniform_int_distribution<std::minstd_rand0::result_type> dist(0, H-1);
-	for (int i = 0; i < 99; ++i) {
-		arr[dist(rng)].bomb = true;
-	}
+	addMines(arr);
 	// count how many bombs are next to each tile
 	countBombs(arr);
 	inProgress = true;
@@ -486,7 +564,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 			// FPS Limiter End
 
 			//CODE HERE
-			updateGame();
+			updateHeader();
 			
 	}
 
