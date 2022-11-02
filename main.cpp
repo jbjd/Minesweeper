@@ -529,6 +529,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	RegisterClass(&windowClass);
 	HWND window = CreateWindowA(windowClass.lpszClassName, "MineSweeper",  WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, 0, 0, hInstance, 0);
 	HDC hdc = GetDC(window);
+	ShowWindow(window, SW_MAXIMIZE);
 
 	MSG message; //gets messages sent to window and reads them
 
