@@ -288,46 +288,59 @@ void drawState(){
 
 void updateHeader(){
 	Gdiplus::SolidBrush behind(black);
-	Gdiplus::Pen bPen(black);
-	Gdiplus::FontFamily fontFamily(L"Arial");
-	Gdiplus::Font       font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
-	Gdiplus::PointF     pointF(0, 1);
 	Gdiplus::SolidBrush redBrush(red);
+	Gdiplus::SolidBrush fac(yel);
+	Gdiplus::Pen bPen(black);
 	Gdiplus::Pen darkPen(darkGray, 2);
 	Gdiplus::Pen whitePen(white);
-	Gdiplus::SolidBrush fac(yel);
+	Gdiplus::FontFamily fontFamily(L"Arial");
+	Gdiplus::Font font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+	Gdiplus::PointF pointF(0, 1);
+	
 	// timer
 	int time = tick/50;
-	std::wstring timer;
-	if(time < 10)
-		timer = L"00"+std::to_wstring(time);
-	else if(time < 100)
-		timer = L"0"+std::to_wstring(time);
-	else
-		timer = std::to_wstring(time);
+	int a;
+	WCHAR timer[4] = L"000";
+	if(time < 10){
+		timer[2] += time;
+	}else if(time < 100){
+		timer[1] += time/10;
+		timer[2] += time%10;
+	}else{
+		timer[0] += time/100;
+		timer[1] += (time%100)/10;
+		timer[2] += time%10;
+	}
 	Gdiplus::Bitmap bmp(66, 40);
 	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
 	graph->FillRectangle(&behind, 0, 0, 66, 40);
-	graph->DrawString(timer.c_str(), -1, &font, pointF, NULL, &redBrush);
+	graph->DrawString(timer, 3, &font, pointF, &redBrush);
 	
 	graphics->DrawImage(&bmp, rect.right-topLeftX-86, TOP+15, 66, 40);
 	delete graph;
-	// bomb count
-	std::wstring bombCount;
-	bombCount = bombs > 9 || bombs < 0 ? L"0"+std::to_wstring(bombs) : L"00"+std::to_wstring(bombs);
-	if(bombs > 9)
-		bombCount = L"0"+std::to_wstring(bombs);
-	else if(bombs >= 0)
-		bombCount = L"00"+std::to_wstring(bombs);
-	else if(bombs >= -9)
-		bombCount = L"-0"+std::to_wstring(-1*bombs);
-	else if(bombs >= -99)
-		bombCount = L"-"+std::to_wstring(-1*bombs);
-	else
-		bombCount = L"---";
+
+	WCHAR bombCount[4] = L"000";
+	if(bombs > 9){
+		bombCount[1] += bombs/10;
+		bombCount[2] += bombs%10;
+	}else if(bombs >= 0){
+		bombCount[2] += bombs;
+	}else if(bombs >= -9){
+		bombCount[0] = L'-';
+		bombCount[2] += -1*bombs;
+	}else if(bombs >= -99){
+		bombCount[0] = L'-';
+		a = -1*bombs;
+		bombCount[1] += a/10;
+		bombCount[2] += a%10;
+	}else{
+		bombCount[0] = L'-';
+		bombCount[1] = L'-';
+		bombCount[2] = L'-';
+	}
 	graph = Gdiplus::Graphics::FromImage(&bmp);
 	graph->FillRectangle(&behind, 0, 0, 66, 40);
-	graph->DrawString(bombCount.c_str(), -1, &font, pointF, NULL, &redBrush);
+	graph->DrawString(bombCount, 3, &font, pointF, &redBrush);
 	
 	graphics->DrawImage(&bmp, topLeftX+20, TOP+15, 66, 40);
 	delete graph;
