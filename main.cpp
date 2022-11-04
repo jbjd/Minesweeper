@@ -9,12 +9,12 @@
 #include <random>
 #include <string>
 
-const int COL = 30;
-const int ROW = 16;
-const int H = 480;
-const int TILESIZE = 30;
-const int TOP  = 100;
-const int HEADERSIZE = 70;
+const int TILESIZE = 30, 
+COL = 30,
+ROW = 16,
+H = 480,
+TOP  = 100,
+HEADERSIZE = 70;
 
 struct tile{
 	bool bomb = false;
@@ -22,41 +22,39 @@ struct tile{
 	bool hidden = true;
 	bool flag = false;
 };
-int bombs = 99;
-int revealed = 0;
+int bombs = 99, revealed = 0; // total mines and spaces revealed
 int tick = 0; // this divided by 50 is time in seconds
 tile arr[H];
-bool inProgress = false;
-bool hasClicked = false;
+bool inProgress = false, hasClicked = false;  // if timer should run and if user has clicked in current game
 
 
-
-void countBombs(tile (&arr)[480]){
+void countBombs(tile (&arr)[H]){
 	arr[0].nextTo = arr[1].bomb+arr[COL].bomb+arr[COL+1].bomb;  // nw corner
 	arr[COL-1].nextTo = arr[COL-2].bomb+arr[COL+COL-1].bomb+arr[COL+COL-2].bomb;  // ne corner
 	arr[H-COL].nextTo = arr[H-COL-COL].bomb+arr[H-COL+1].bomb+arr[H-COL-COL+1].bomb;  // sw corner
 	arr[H-1].nextTo = arr[H-2].bomb+arr[H-COL-1].bomb+arr[H-COL-2].bomb;  // se corner
 	// top row
-	for(int i = 1; i < COL-1; ++i){
+	int i;
+	for(i = 1; i < COL-1; ++i){
 		arr[i].nextTo = arr[i-1].bomb+arr[i+1].bomb+arr[i+COL].bomb+arr[i+COL-1].bomb+arr[i+COL+1].bomb;
 	}
 	// bot row
-	for(int i = H-COL+1; i < H-1; ++i){
+	for(i = H-COL+1; i < H-1; ++i){
 		arr[i].nextTo = arr[i-1].bomb+arr[i+1].bomb+arr[i-COL].bomb+arr[i-COL-1].bomb+arr[i-COL+1].bomb;
 	}
 	// left col
-	for(int i = COL; i < H-COL; i+=COL){
+	for(i = COL; i < H-COL; i+=COL){
 		arr[i].nextTo = arr[i-COL].bomb+arr[i-COL+1].bomb+arr[i+1].bomb+arr[i+COL].bomb+arr[i+COL+1].bomb;
 	}
 	// right col
-	for(int i = COL+COL-1; i < H-1; i+=COL){
+	for(i = COL+COL-1; i < H-1; i+=COL){
 		arr[i].nextTo = arr[i-COL].bomb+arr[i-COL-1].bomb+arr[i-1].bomb+arr[i+COL].bomb+arr[i+COL-1].bomb;
 	}
 	// all rows between top/bot
 	int ind;
 	for(int j = 1; j < ROW-1; ++j){
 		//for each tile in row
-		for(int i = 1; i < COL-1; ++i){
+		for(i = 1; i < COL-1; ++i){
 			ind = i+(j*COL);
 			arr[ind].nextTo = arr[ind-1].bomb+arr[ind+1].bomb+arr[ind-COL-1].bomb+arr[ind-COL].bomb+arr[ind-COL+1].bomb+arr[ind+COL-1].bomb+arr[ind+COL].bomb+arr[ind+COL+1].bomb;
 		}
@@ -227,7 +225,7 @@ void redrawTile(const int &x, const int &y){
 	}
 }
 
-void addMines(tile (&arr)[480]){
+void addMines(tile (&arr)[H]){
 	std::minstd_rand  rng(time(NULL));
 	std::uniform_int_distribution<std::minstd_rand0::result_type> dist(0, H-1);
 	int total = 0;
@@ -241,10 +239,16 @@ void addMines(tile (&arr)[480]){
 	}
 }
 
-void resetTiles(tile (&arr)[480]){
+// adds mines and gives each tile count of nearby mines
+void setup(tile (&arr)[H]){
+	addMines(arr);
+	countBombs(arr);
+}
+
+void resetTiles(tile (&arr)[H]){
 	bombs = 99;
 	revealed = 0;
-	for(int i = 0; i < 480; ++i){
+	for(int i = 0; i < H; ++i){
 		arr[i].hidden = true;
 		arr[i].bomb = false;
 		arr[i].nextTo = 0;
@@ -253,8 +257,7 @@ void resetTiles(tile (&arr)[480]){
 	tick = 0;
 	inProgress = true;
 	hasClicked = false;
-	addMines(arr);
-	countBombs(arr);
+	setup(arr);
 	updateTiles();
 }
 
@@ -296,9 +299,7 @@ void updateHeader(){
 	// timer
 	int time = tick/50;
 	std::wstring timer;
-	if(time > 999)
-		timer = L"999";
-	else if(time < 10)
+	if(time < 10)
 		timer = L"00"+std::to_wstring(time);
 	else if(time < 100)
 		timer = L"0"+std::to_wstring(time);
@@ -447,12 +448,13 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 
 			// throw out clicks not on tiles
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
-			   y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
+			y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
 				return 0;
 			// can't click tiles if game ended
 			if(!inProgress) return 0;
-			x = (x-topLeftX+1)/TILESIZE;
+			x = (x-topLeftX)/TILESIZE;
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
+			if(x > 29 || y > 15) return 0;
 			// clicked on col x, row y
 			if(arr[(30*y)+x].hidden){
 				// stop game if mine, else reveal tiles
@@ -496,9 +498,9 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			x = (lParam & 0xFFFF);
 			y = (lParam >> 16);
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
-			   y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
+			y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
 				return 0;
-			x = (x-topLeftX+1)/TILESIZE;
+			x = (x-topLeftX)/TILESIZE;
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
 			if(!arr[(30*y)+x].hidden || x > 29 || y > 15) return 0;
 			// toggle flag and redraw
@@ -542,22 +544,21 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 
 	graphics->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
 	drawState();
-	
+
 	updateHeader();
-	
+
 	for (int i = 0; i < H; ++i) {
 		arr[i] = tile();
 	}
-	// mark 99 random tiles as bombs
-	addMines(arr);
-	// count how many bombs are next to each tile
-	countBombs(arr);
+
+	setup(arr);
+
 	inProgress = true;
 	while (active) {
 			// FPS Limiter
 			nextF += std::chrono::milliseconds(20); 
 			std::this_thread::sleep_until(nextF);
-			if(inProgress&&hasClicked) ++tick;
+			if(inProgress&&hasClicked&&tick<999) ++tick;
 			if(PeekMessage(&message, NULL, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
 				TranslateMessage(&message); 
 				DispatchMessage(&message);  
