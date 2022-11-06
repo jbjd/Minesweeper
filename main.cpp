@@ -1,12 +1,11 @@
 #define NOMINMAX
 #include <windows.h> 
 #include <gdiplus.h>
-#include <cstdio>
 #include <chrono>
 #include <thread>
 //#include <iostream>
 #include <random>
-#include <string>
+#include <memory>
 
 const int TILESIZE = 30, 
 COL = 30,
@@ -75,7 +74,7 @@ void countBombs(tile (&arr)[H]){
 std::chrono::time_point<std::chrono::steady_clock> nextF = std::chrono::steady_clock::now();
 
 // global vars
-Gdiplus::Graphics *graphics;  // gdiplus for drawing
+std::unique_ptr<Gdiplus::Graphics> graphics;  // gdiplus for drawing
 int active = 1;  // if main loop continues
 RECT rect; // screen bbox
 Gdiplus::Color back = Gdiplus::Color(255, 192, 192, 192);
@@ -123,7 +122,6 @@ void updateTiles(){
 	Gdiplus::Bitmap bmp(TILESIZE*30, TILESIZE*16);
 	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
 	graph->FillRectangle(&wiper, 0, 0, TILESIZE*30, TILESIZE*16);
-	std::wstring nearCount;
 	for(int j = 0; j < 16; ++j){
 		for(int i = 0; i < 30; ++i){
 			int x = (i*TILESIZE);
@@ -155,32 +153,31 @@ void updateTiles(){
 			}else{
 				graph->FillRectangle(&wiper2, x, y, TILESIZE-1, TILESIZE-1);
 				if(arr[(30*j)+i].nextTo){
-					nearCount = std::to_wstring(arr[(30*j)+i].nextTo);
 					Gdiplus::PointF pointF(x+7, y+5);
 					switch(arr[(30*j)+i].nextTo){
 						case 1:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &oneMine);
+							graph->DrawString(L"1", 1, &font, pointF, NULL, &oneMine);
 							break;
 						case 2:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &twoMine);
+							graph->DrawString(L"2", 1, &font, pointF, NULL, &twoMine);
 							break;
 						case 3:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &threeMine);
+							graph->DrawString(L"3", 1, &font, pointF, NULL, &threeMine);
 							break;
 						case 4:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &fourMine);
+							graph->DrawString(L"4", 1, &font, pointF, NULL, &fourMine);
 							break;
 						case 5:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &fiveMine);
+							graph->DrawString(L"5", 1, &font, pointF, NULL, &fiveMine);
 							break;
 						case 6:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &sixMine);
+							graph->DrawString(L"6", 1, &font, pointF, NULL, &sixMine);
 							break;
 						case 7:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &sevMine);
+							graph->DrawString(L"7", 1, &font, pointF, NULL, &sevMine);
 							break;
 						default:
-							graph->DrawString(nearCount.c_str(), -1, &font, pointF, NULL, &eightMine);
+							graph->DrawString(L"0", 1, &font, pointF, NULL, &eightMine);
 							break;
 					}
 				}
@@ -438,9 +435,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 		// exit
 		case WM_CLOSE:
 		case WM_DESTROY:
-			delete graphics;
 			active = 0;
-			PostQuitMessage(0);
 			return 0;
 		case WM_PAINT:
 			return 0;
@@ -448,8 +443,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			lpMMI->ptMinTrackSize.x = 1000;
 			lpMMI->ptMinTrackSize.y = 800;
 		case WM_LBUTTONDOWN:
-			if(!wParam)
-				return 0;
+			if(!wParam) return 0;
 			x = (lParam & 0xFFFF);
 			y = (lParam >> 16);
 			// check if user clicked on new game
@@ -492,11 +486,11 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 				}else{
 				noMine:
 					arr[(30*y)+x].hidden = false;
-					++revealed;
-					if(!arr[(30*y)+x].nextTo) 
+					if(!arr[(30*y)+x].nextTo){
 						showNear(x, y);
-						updateTiles();
-					if(revealed >= 381){
+					}
+					updateTiles();
+					if(++revealed >= 381){
 						inProgress = false;
 						bombs = 0;
 					}
@@ -505,8 +499,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			hasClicked = true;
 			return 0;
 		case WM_RBUTTONDOWN:
-			if(!wParam || !inProgress)
-				return 0;
+			if(!wParam || !inProgress) return 0;
 			x = (lParam & 0xFFFF);
 			y = (lParam >> 16);
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
@@ -516,11 +509,8 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
 			if(!arr[(30*y)+x].hidden || x > 29 || y > 15) return 0;
 			// toggle flag and redraw
-			if(arr[(30*y)+x].flag){
-				++bombs;
-			}else{
-				--bombs;
-			}
+			arr[(30*y)+x].flag ? ++bombs : --bombs;
+			
 			arr[(30*y)+x].flag = !arr[(30*y)+x].flag;
 			redrawTile(x, y);
 			
@@ -551,7 +541,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	getDimensions(window);
 
 	// tools to draw on screen
-	graphics = new Gdiplus::Graphics(hdc);
+	graphics = std::make_unique<Gdiplus::Graphics>(hdc);
 	Gdiplus::SolidBrush wiper(back);
 
 	graphics->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
@@ -569,7 +559,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	while (active) {
 			// FPS Limiter
 			nextF += std::chrono::milliseconds(20); 
-			std::this_thread::sleep_until(nextF);
+			std::this_thread::sleep_for(nextF - std::chrono::steady_clock::now());
 			if(inProgress&&hasClicked&&tick<(999*50)) ++tick;
 			if(PeekMessage(&message, NULL, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
 				TranslateMessage(&message); 
