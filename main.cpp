@@ -5,7 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <memory>
-#include <iostream>
+//#include <iostream>
 #include <random>
 #include <string>
 
@@ -500,7 +500,6 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 						inProgress = false;
 						bombs = 0;
 					}
-					//std::cout << revealed << \n <<;
 				}
 			}
 			hasClicked = true;
@@ -571,7 +570,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 			// FPS Limiter
 			nextF += std::chrono::milliseconds(20); 
 			std::this_thread::sleep_until(nextF);
-			if(inProgress&&hasClicked&&tick<999) ++tick;
+			if(inProgress&&hasClicked&&tick<(999*50)) ++tick;
 			if(PeekMessage(&message, NULL, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
 				TranslateMessage(&message); 
 				DispatchMessage(&message);  
