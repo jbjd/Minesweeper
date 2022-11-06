@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <chrono>
 #include <thread>
-#include <memory>
 //#include <iostream>
 #include <random>
 #include <string>
@@ -76,7 +75,7 @@ void countBombs(tile (&arr)[H]){
 std::chrono::time_point<std::chrono::steady_clock> nextF = std::chrono::steady_clock::now();
 
 // global vars
-std::shared_ptr<Gdiplus::Graphics> graphics;  // gdiplus for drawing
+Gdiplus::Graphics *graphics;  // gdiplus for drawing
 int active = 1;  // if main loop continues
 RECT rect; // screen bbox
 Gdiplus::Color back = Gdiplus::Color(255, 192, 192, 192);
@@ -439,6 +438,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 		// exit
 		case WM_CLOSE:
 		case WM_DESTROY:
+			delete graphics;
 			active = 0;
 			PostQuitMessage(0);
 			return 0;
@@ -551,7 +551,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	getDimensions(window);
 
 	// tools to draw on screen
-	graphics = std::make_shared<Gdiplus::Graphics>(hdc);
+	graphics = new Gdiplus::Graphics(hdc);
 	Gdiplus::SolidBrush wiper(back);
 
 	graphics->FillRectangle(&wiper, 0, 0, rect.right, rect.bottom);
