@@ -15,13 +15,14 @@ TOP = 100,
 HEADERSIZE = 70;
 
 struct tile{
-	bool bomb = false;
 	int nextTo = 0;
-	bool hidden = true;
-	bool flag = false;
+	bool hidden = true,
+	bomb = false,
+	flag = false;
 };
-int bombs = 99, revealed = 0; // total mines and spaces revealed
-int tick = 0; // this divided by 50 is time in seconds
+int bombs = 99, revealed = 0, // total mines and spaces revealed
+tick = 0, // this divided by 50 is time in seconds
+topLeftX, bottom;  // location of box on screen
 tile arr[H];
 bool inProgress = false, hasClicked = false;  // if timer should run and if user has clicked in current game
 
@@ -92,9 +93,7 @@ Gdiplus::Color five = Gdiplus::Color(255, 150, 30, 30);
 Gdiplus::Color six = Gdiplus::Color(255, 30, 110, 150);
 Gdiplus::Color sev = Gdiplus::Color(255, 200, 40, 160);
 
-int topLeftX, bottom;
-
-void getDimensions(HWND w){
+void getDimensions(const HWND &w){
 	GetWindowRect(w, &rect);
 	rect.right -= rect.left;
 	rect.bottom -= rect.top;
@@ -103,21 +102,11 @@ void getDimensions(HWND w){
 }
 
 void updateTiles(){
-	Gdiplus::SolidBrush behind(black);
 	Gdiplus::FontFamily fontFamily(L"Arial");
 	Gdiplus::Font font(&fontFamily, 10, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
-	Gdiplus::Pen darkPen(darkGray);
-	Gdiplus::Pen whitePen(white);
-	Gdiplus::SolidBrush oneMine(one);
-	Gdiplus::SolidBrush twoMine(two);
-	Gdiplus::SolidBrush threeMine(three);
-	Gdiplus::SolidBrush fourMine(four);
-	Gdiplus::SolidBrush fiveMine(five);
-	Gdiplus::SolidBrush sixMine(six);
-	Gdiplus::SolidBrush sevMine(sev);
-	Gdiplus::SolidBrush eightMine(black);
-	Gdiplus::SolidBrush wiper(back);
-	Gdiplus::SolidBrush wiper2(backer);
+	Gdiplus::Pen darkPen(darkGray), whitePen(white);
+	Gdiplus::SolidBrush behind(black), oneMine(one), twoMine(two), threeMine(three), fourMine(four),
+	fiveMine(five), sixMine(six), sevMine(sev), eightMine(black), wiper(back), wiper2(backer);
 
 	Gdiplus::Bitmap bmp(TILESIZE*30, TILESIZE*16);
 	Gdiplus::Graphics* graph = Gdiplus::Graphics::FromImage(&bmp);
@@ -191,14 +180,13 @@ void updateTiles(){
 
 // redraws hidden tile, dont call for revealed tiles
 void redrawTile(const int &x, const int &y){
-	Gdiplus::SolidBrush wiper(back);
+	Gdiplus::SolidBrush wiper(back), base(black);
 	int xc = topLeftX+2+(x*TILESIZE);
 	int yc = TOP+HEADERSIZE+14+(y*TILESIZE);
 	// draw gray box and put special stuff on top
 	graphics->FillRectangle(&wiper, xc+1, yc+1, TILESIZE-2, TILESIZE-2);
 
 	if(arr[(30*y)+x].bomb && !arr[(30*y)+x].hidden){
-		Gdiplus::SolidBrush base(black);
 		Gdiplus::SolidBrush back(red);
 		Gdiplus::Pen lines(black, 2);
 
@@ -208,7 +196,6 @@ void redrawTile(const int &x, const int &y){
 		graphics->DrawLine(&lines, xc+5, yc+15, xc+25, yc+15);
 	}
 	else if(arr[(30*y)+x].flag){
-		Gdiplus::SolidBrush base(black);
 		Gdiplus::SolidBrush flag(three);
 		graphics->FillRectangle(&base, xc+7, yc+22, (TILESIZE>>1)+1, 3);
 		graphics->FillRectangle(&base, xc+14, yc+9, 2, 13);
@@ -283,12 +270,8 @@ void drawState(){
 }
 
 void updateHeader(){
-	Gdiplus::SolidBrush behind(black);
-	Gdiplus::SolidBrush redBrush(red);
-	Gdiplus::SolidBrush fac(yel);
-	Gdiplus::Pen bPen(black);
-	Gdiplus::Pen darkPen(darkGray, 2);
-	Gdiplus::Pen whitePen(white);
+	Gdiplus::SolidBrush behind(black), redBrush(red), fac(yel);
+	Gdiplus::Pen bPen(black), darkPen(darkGray, 2), whitePen(white);
 	Gdiplus::FontFamily fontFamily(L"Arial");
 	Gdiplus::Font font(&fontFamily, 20, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
 	Gdiplus::PointF pointF(0, 1);
@@ -358,66 +341,65 @@ void updateHeader(){
 	delete graph;
 }
 
-
-void showNear(int x, int y, bool nw=true, bool n=true, bool ne=true, bool w=true, bool e=true, bool sw=true, bool s=true, bool se=true){
-	if(y){
-		if(n && arr[(30*(y-1))+x].hidden){
+void showNear(int x, int y){
+	if(y > 0){
+		if(arr[(30*(y-1))+x].hidden){
 			arr[(30*(y-1))+x].hidden = false;
 			++revealed;
 			if(!arr[(30*(y-1))+x].nextTo){
-				showNear(x, y-1, nw=true, n=true, ne=true);
+				showNear(x, y-1);
 			}
 		}
-		if(x > 0 && nw && arr[(30*(y-1))+x-1].hidden){
+		if(x > 0 && arr[(30*(y-1))+x-1].hidden){
 			arr[(30*(y-1))+x-1].hidden = false;
 			++revealed;
 			if(!arr[(30*(y-1))+x-1].nextTo){
-				showNear(x-1, y-1, nw=true, n=true, w=true);
+				showNear(x-1, y-1);
 			}
 		}
-		if(x < 29 && ne && arr[(30*(y-1))+x+1].hidden){
+		if(x < 29 && arr[(30*(y-1))+x+1].hidden){
 			arr[(30*(y-1))+x+1].hidden = false;
 			++revealed;
 			if(!arr[(30*(y-1))+x+1].nextTo){
-				showNear(x+1, y-1, ne=true, n=true, e=true);
+				showNear(x+1, y-1);
 			}
 		}
 	}
 	if(y < 15){
-		if(s && arr[(30*(y+1))+x].hidden){
+		if(arr[(30*(y+1))+x].hidden){
 			arr[(30*(y+1))+x].hidden = false;
 			++revealed;
 			if(!arr[(30*(y+1))+x].nextTo){
-				showNear(x, y+1, sw=true, s=true, se=true);
+				showNear(x, y+1);
 			}
 		}
-		if(x > 0 && sw && arr[(30*(y+1))+x-1].hidden){
+		if(x > 0 && arr[(30*(y+1))+x-1].hidden){
 			arr[(30*(y+1))+x-1].hidden = false;
 			++revealed;
 			if(!arr[(30*(y+1))+x-1].nextTo){
-				showNear(x-1, y+1, sw=true, s=true, w=true);
+				showNear(x-1, y+1);
 			}
 		}
-		if(x < 29 && se && arr[(30*(y+1))+x+1].hidden){
+		if(x < 29 && arr[(30*(y+1))+x+1].hidden){
 			arr[(30*(y+1))+x+1].hidden = false;
 			++revealed;
 			if(!arr[(30*(y+1))+x+1].nextTo){
-				showNear(x+1, y+1, se=true, s=true, e=true);
+				showNear(x+1, y+1);
 			}
 		}
 	}
-	if(x > 0 && w && arr[(30*(y))+x-1].hidden){
+	if(x > 0 && arr[(30*(y))+x-1].hidden){
 		arr[(30*(y))+x-1].hidden = false;
 		++revealed;
 		if(!arr[(30*(y))+x-1].nextTo){
-			showNear(x-1, y, nw=true, w=true, sw=true);
+			showNear(x-1, y);
 		}
 	}
-	if(x < 29 && e && arr[(30*(y))+x+1].hidden){
+	if(x < 29 && arr[(30*(y))+x+1].hidden){
 		arr[(30*(y))+x+1].hidden = false;
 		++revealed;
 		if(!arr[(30*(y))+x+1].nextTo){
-			showNear(x+1, y, ne=true, e=true, se=true);
+			showNear(x+1, y);
 		}
 	}
 }
@@ -431,10 +413,10 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 		case WM_SIZE:
 			// read size of screen and draw background
 			getDimensions(hwnd);
-			if(graphics == nullptr)
-				return 0;
-			drawState();
-			updateHeader();
+			if(graphics != nullptr){
+				drawState();
+				updateHeader();
+			}
 			return 0;
 		// exit
 		case WM_CLOSE:
@@ -539,7 +521,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	HDC hdc = GetDC(window);
 	ShowWindow(window, SW_MAXIMIZE);
 
-	MSG message; //gets messages sent to window and reads them
+	tagMSG message; //gets messages sent to window and reads them
 
 	// read size of screen into rect
 	getDimensions(window);
@@ -561,19 +543,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 
 	inProgress = true;
 	while (active) {
-			// FPS Limiter
-			nextF += std::chrono::milliseconds(20); 
-			std::this_thread::sleep_for(nextF - std::chrono::steady_clock::now());
-			if(inProgress&&hasClicked&&tick<(999*50)) ++tick;
-			if(PeekMessage(&message, window, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
-				TranslateMessage(&message); 
-				DispatchMessage(&message);  
-			}
-			// FPS Limiter End
-
-			//CODE HERE
-			updateHeader();
-			
+		// FPS Limiter
+		nextF += std::chrono::milliseconds(20); 
+		std::this_thread::sleep_for(nextF - std::chrono::steady_clock::now());
+		if(inProgress&&hasClicked&&tick<(999*50)) ++tick;
+		if(PeekMessage(&message, window, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
+			TranslateMessage(&message); 
+			DispatchMessage(&message);  
+		}
+		updateHeader();
 	}
 
 	return message.wParam; // Checks most recent message for return
