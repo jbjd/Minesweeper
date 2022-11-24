@@ -11,7 +11,7 @@ const int TILESIZE = 30,
 COL = 30,
 ROW = 16,
 H = 480,
-TOP  = 100,
+TOP = 100,
 HEADERSIZE = 70;
 
 struct tile{
@@ -75,7 +75,7 @@ std::chrono::time_point<std::chrono::steady_clock> nextF = std::chrono::steady_c
 
 // global vars
 std::unique_ptr<Gdiplus::Graphics> graphics;  // gdiplus for drawing
-int active = 1;  // if main loop continues
+bool active = 1;  // if main loop continues
 RECT rect; // screen bbox
 Gdiplus::Color back = Gdiplus::Color(255, 192, 192, 192);
 Gdiplus::Color darkGray = Gdiplus::Color(255, 128, 128, 128);
@@ -360,18 +360,50 @@ void updateHeader(){
 
 
 void showNear(int x, int y, bool nw=true, bool n=true, bool ne=true, bool w=true, bool e=true, bool sw=true, bool s=true, bool se=true){
-	if(y > 0 && n && arr[(30*(y-1))+x].hidden){
-		arr[(30*(y-1))+x].hidden = false;
-		++revealed;
-		if(!arr[(30*(y-1))+x].nextTo){
-			showNear(x, y-1, nw=true, n=true, ne=true);
+	if(y){
+		if(n && arr[(30*(y-1))+x].hidden){
+			arr[(30*(y-1))+x].hidden = false;
+			++revealed;
+			if(!arr[(30*(y-1))+x].nextTo){
+				showNear(x, y-1, nw=true, n=true, ne=true);
+			}
+		}
+		if(x > 0 && nw && arr[(30*(y-1))+x-1].hidden){
+			arr[(30*(y-1))+x-1].hidden = false;
+			++revealed;
+			if(!arr[(30*(y-1))+x-1].nextTo){
+				showNear(x-1, y-1, nw=true, n=true, w=true);
+			}
+		}
+		if(x < 29 && ne && arr[(30*(y-1))+x+1].hidden){
+			arr[(30*(y-1))+x+1].hidden = false;
+			++revealed;
+			if(!arr[(30*(y-1))+x+1].nextTo){
+				showNear(x+1, y-1, ne=true, n=true, e=true);
+			}
 		}
 	}
-	if(y < 15 && s && arr[(30*(y+1))+x].hidden){
-		arr[(30*(y+1))+x].hidden = false;
-		++revealed;
-		if(!arr[(30*(y+1))+x].nextTo){
-			showNear(x, y+1, sw=true, s=true, se=true);
+	if(y < 15){
+		if(s && arr[(30*(y+1))+x].hidden){
+			arr[(30*(y+1))+x].hidden = false;
+			++revealed;
+			if(!arr[(30*(y+1))+x].nextTo){
+				showNear(x, y+1, sw=true, s=true, se=true);
+			}
+		}
+		if(x > 0 && sw && arr[(30*(y+1))+x-1].hidden){
+			arr[(30*(y+1))+x-1].hidden = false;
+			++revealed;
+			if(!arr[(30*(y+1))+x-1].nextTo){
+				showNear(x-1, y+1, sw=true, s=true, w=true);
+			}
+		}
+		if(x < 29 && se && arr[(30*(y+1))+x+1].hidden){
+			arr[(30*(y+1))+x+1].hidden = false;
+			++revealed;
+			if(!arr[(30*(y+1))+x+1].nextTo){
+				showNear(x+1, y+1, se=true, s=true, e=true);
+			}
 		}
 	}
 	if(x > 0 && w && arr[(30*(y))+x-1].hidden){
@@ -386,34 +418,6 @@ void showNear(int x, int y, bool nw=true, bool n=true, bool ne=true, bool w=true
 		++revealed;
 		if(!arr[(30*(y))+x+1].nextTo){
 			showNear(x+1, y, ne=true, e=true, se=true);
-		}
-	}
-	if(y > 0 && x > 0 && nw && arr[(30*(y-1))+x-1].hidden){
-		arr[(30*(y-1))+x-1].hidden = false;
-		++revealed;
-		if(!arr[(30*(y-1))+x-1].nextTo){
-			showNear(x-1, y-1, nw=true, n=true, w=true);
-		}
-	}
-	if(y > 0 && x < 29 && ne && arr[(30*(y-1))+x+1].hidden){
-		arr[(30*(y-1))+x+1].hidden = false;
-		++revealed;
-		if(!arr[(30*(y-1))+x+1].nextTo){
-			showNear(x+1, y-1, ne=true, n=true, e=true);
-		}
-	}
-	if(y < 15 && x > 0 && sw && arr[(30*(y+1))+x-1].hidden){
-		arr[(30*(y+1))+x-1].hidden = false;
-		++revealed;
-		if(!arr[(30*(y+1))+x-1].nextTo){
-			showNear(x-1, y+1, sw=true, s=true, w=true);
-		}
-	}
-	if(y < 15 && x < 29 && se && arr[(30*(y+1))+x+1].hidden){
-		arr[(30*(y+1))+x+1].hidden = false;
-		++revealed;
-		if(!arr[(30*(y+1))+x+1].nextTo){
-			showNear(x+1, y+1, se=true, s=true, e=true);
 		}
 	}
 }
@@ -459,7 +463,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 				return 0;
 			// can't click tiles if game ended
 			if(!inProgress) return 0;
-			x = (x-topLeftX)/TILESIZE;
+			x = (x-topLeftX-2)/TILESIZE;
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
 			if(x > 29 || y > 15) return 0;
 			// clicked on col x, row y
@@ -505,7 +509,7 @@ LRESULT CALLBACK windowProc(_In_ HWND hwnd, _In_ UINT uMsg, _In_ WPARAM wParam, 
 			if(x <= topLeftX || x >= rect.right-topLeftX ||
 			y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
 				return 0;
-			x = (x-topLeftX)/TILESIZE;
+			x = (x-topLeftX-2)/TILESIZE;
 			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
 			if(!arr[(30*y)+x].hidden || x > 29 || y > 15) return 0;
 			// toggle flag and redraw
@@ -531,7 +535,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 	windowClass.lpfnWndProc = windowProc;
 	windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 	RegisterClass(&windowClass);
-	HWND window = CreateWindowA(windowClass.lpszClassName, "MineSweeper",  WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, 0, 0, hInstance, 0);
+	HWND window = CreateWindowA(windowClass.lpszClassName, "MineSweeper",  WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, 0);
 	HDC hdc = GetDC(window);
 	ShowWindow(window, SW_MAXIMIZE);
 
@@ -561,7 +565,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine ,int n
 			nextF += std::chrono::milliseconds(20); 
 			std::this_thread::sleep_for(nextF - std::chrono::steady_clock::now());
 			if(inProgress&&hasClicked&&tick<(999*50)) ++tick;
-			if(PeekMessage(&message, NULL, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
+			if(PeekMessage(&message, window, 0, 0, PM_REMOVE | PM_NOYIELD)){//this while loop processes message for window
 				TranslateMessage(&message); 
 				DispatchMessage(&message);  
 			}
