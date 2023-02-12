@@ -1,3 +1,4 @@
+// g++ main.cpp -mwindows -o minesweeper -lgdiplus
 #define NOMINMAX
 #include <windows.h> 
 #include <gdiplus.h>
@@ -21,7 +22,7 @@ struct tile{
 int bombs = 99, revealed = 0, // total mines and spaces revealed
 tick = 0, // this divided by 50 is time in seconds
 topLeftX, bottom,  // location of box on screen
-shuffledArray[480];  //shuffled and used for mine placement
+shuffledArray[H];  //shuffled and used for mine placement
 tile arr[H];
 bool inProgress = false, hasClicked = false;  // if timer should run and if user has clicked in current game
 
@@ -347,7 +348,7 @@ void showNear(const int &x, const int &y){
 //handles events sent to window
 long long __stdcall windowProc(_In_ HWND__* hwnd, _In_ unsigned uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam) {
 	LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;
-	int x, y;
+	int x, y, index;
 	switch(uMsg){
 		// resize
 		case WM_SIZE:
@@ -383,12 +384,13 @@ long long __stdcall windowProc(_In_ HWND__* hwnd, _In_ unsigned uMsg, _In_ WPARA
 			// can't click tiles if game ended
 			if(!inProgress) return 0;
 			x = (x-topLeftX-2)/TILESIZE;
-			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
+			y = (y-(TOP+HEADERSIZE+14))/TILESIZE;
 			if(x > 29 || y > 15) return 0;
 			// clicked on col x, row y
-			if(arr[(30*y)+x].hidden){
+			index = (30*y)+x;
+			if(arr[index].hidden && !arr[index].flag){
 				// stop game if mine, else reveal tiles
-				if(arr[(30*y)+x].bomb){
+				if(arr[index].bomb){
 					if(!hasClicked){
 						// if users first click was a mine, move mine to upper left
 						for(int i = 0; i < 400; ++i){
@@ -397,19 +399,19 @@ long long __stdcall windowProc(_In_ HWND__* hwnd, _In_ unsigned uMsg, _In_ WPARA
 								break;
 							}
 						}
-						arr[(30*y)+x].bomb = false;
+						arr[index].bomb = false;
 						// recount mines 
 						countBombs(arr);
 						// act as if nothing happened
 						goto noMine;
 					}
-					arr[(30*y)+x].hidden = false;
+					arr[index].hidden = false;
 					inProgress = false;
 					redrawTile(x, y);
 				}else{
 				noMine:
-					arr[(30*y)+x].hidden = false;
-					if(!arr[(30*y)+x].nextTo){
+					arr[index].hidden = false;
+					if(!arr[index].nextTo){
 						showNear(x, y);
 					}
 					updateTiles();
@@ -429,12 +431,13 @@ long long __stdcall windowProc(_In_ HWND__* hwnd, _In_ unsigned uMsg, _In_ WPARA
 			y <= TOP+HEADERSIZE+14 || y >= TOP+HEADERSIZE+14+(TILESIZE*16))
 				return 0;
 			x = (x-topLeftX-2)/TILESIZE;
-			y = (y-(TOP+HEADERSIZE+15))/TILESIZE;
-			if(!arr[(30*y)+x].hidden || x > 29 || y > 15) return 0;
+			y = (y-(TOP+HEADERSIZE+14))/TILESIZE;
+			index = (30*y)+x;
+			if(!arr[index].hidden || x > 29 || y > 15) return 0;
 			// toggle flag and redraw
-			arr[(30*y)+x].flag ? ++bombs : --bombs;
+			arr[index].flag ? ++bombs : --bombs;
 			
-			arr[(30*y)+x].flag = !arr[(30*y)+x].flag;
+			arr[index].flag = !arr[index].flag;
 			redrawTile(x, y);
 			
 			return 0;
@@ -452,9 +455,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int n
 	windowClass.style = CS_HREDRAW | CS_VREDRAW;
 	windowClass.lpszClassName = "Game Window";
 	windowClass.lpfnWndProc = windowProc;
-	windowClass.hCursor = LoadCursor(0, IDC_ARROW);
+	windowClass.hCursor = LoadCursorA(0, IDC_ARROW);
 	RegisterClassA(&windowClass);
-	HWND__ *window = CreateWindowA(windowClass.lpszClassName, "MineSweeper",  WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, 0);
+	HWND__ *window = CreateWindowExA(0L, windowClass.lpszClassName, "MineSweeper",  WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, 0);
 	HDC__ *hdc = GetDC(window);
 	ShowWindow(window, SW_MAXIMIZE);
 
