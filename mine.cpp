@@ -1,4 +1,5 @@
-// g++ main.cpp -mwindows -o mine -lgdiplus
+// TODO: Makefile
+// g++ mine.cpp -mwindows -o mine -lgdiplus -O2 -Wall -s
 
 #define NOMINMAX
 #include <windows.h>
@@ -293,7 +294,7 @@ void updateHeader()
     Gdiplus::PointF pointF(0, 1);
 
     // timer
-    unsigned time = tick / 50, temp;
+    unsigned time = tick / 50;
     wchar_t timer[4];
     if (time < 10)
     {
@@ -531,7 +532,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *lpCmdLine, int n
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
     windowClass.lpszClassName = "Game Window";
     windowClass.lpfnWndProc = windowProc;
-    windowClass.hCursor = LoadCursorA(0, IDC_ARROW);
+    windowClass.hCursor = LoadCursorA(0, (LPCSTR)IDC_ARROW);
     RegisterClassA(&windowClass);
     HWND__ *window = CreateWindowExA(0L, windowClass.lpszClassName, "Mine", WS_VISIBLE | WS_MAXIMIZE | WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, 0);
     HDC__ *hdc = GetDC(window);
